@@ -241,14 +241,16 @@ describe SidekiqScheduler::RedisManager do
 
   describe '.add_schedule_change' do
     subject { described_class.add_schedule_change(job_name) }
-
+    let(:current_time) { Time.now }
     let(:job_name) { 'some_job' }
 
-    it 'should store the schedule change with the current time as score' do
-      Timecop.freeze(Time.now) do
-        subject
+    before do
+      SidekiqScheduler::Store.zadd(:schedules_changed, current_time, job_name)
+    end
 
-        stored_schedules_changes = SidekiqScheduler::Store.zrangebyscore(:schedules_changed, Time.now.to_f, Time.now.to_f)
+    it 'should store the schedule change with the current time as score' do
+      Timecop.freeze(current_time) do
+        stored_schedules_changes = SidekiqScheduler::Store.zrangebyscore(:schedules_changed, current_time, current_time)
         expect(stored_schedules_changes).to match_array(%w(some_job))
       end
     end
@@ -262,7 +264,7 @@ describe SidekiqScheduler::RedisManager do
     it "shouldn't remove the schedules_changed if it's sorted set" do
       subject
 
-      expect(SidekiqScheduler::Store.exists(:schedules_changed)).to be_truthy
+      expect(SidekiqScheduler::Store.exists?(:schedules_changed)).to be_truthy
     end
 
     context 'when schedules_changed is not a sorted set' do
@@ -274,7 +276,7 @@ describe SidekiqScheduler::RedisManager do
       it 'should remove the schedules_changed set' do
         subject
 
-        expect(SidekiqScheduler::Store.exists(:schedules_changed)).to be_falsey
+        expect(SidekiqScheduler::Store.exists?(:schedules_changed)).to be_falsey
       end
     end
   end
@@ -298,7 +300,7 @@ describe SidekiqScheduler::RedisManager do
       subject
 
       Timecop.travel(SidekiqScheduler::RedisManager::REGISTERED_JOBS_THRESHOLD_IN_SECONDS) do
-        expect(SidekiqScheduler::Store.exists('sidekiq-scheduler:pushed:some_job')).to be_falsey
+        expect(SidekiqScheduler::Store.exists?('sidekiq-scheduler:pushed:some_job')).to be_falsey
       end
     end
 

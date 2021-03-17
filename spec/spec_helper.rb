@@ -28,6 +28,4 @@ RSpec.configure do |config|
   end
 
   config.profile_examples = 10
-
-  config.order = :random
 end
