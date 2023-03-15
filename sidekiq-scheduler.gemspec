@@ -5,7 +5,7 @@ require 'sidekiq-scheduler/version'
 Gem::Specification.new do |s|
   s.name        = 'sidekiq-scheduler'
   s.version     = SidekiqScheduler::VERSION
-  s.authors     = ['Morton Jonuschat', 'Moove-it']
+  s.authors     = ['Morton Jonuschat', 'Moove-it', 'Marcelo Lauxen']
   s.email       = ['sidekiq-scheduler@moove-it.com']
   s.license     = 'MIT'
   s.homepage    = 'https://moove-it.github.io/sidekiq-scheduler/'
@@ -14,8 +14,8 @@ Gem::Specification.new do |s|
 
   s.files       = Dir['{lib,web}/**/*'] + %w[MIT-LICENSE Rakefile README.md]
 
-  s.add_dependency 'sidekiq',         '>= 3'
-  s.add_dependency 'redis',           '~> 4.2'
+  s.add_dependency 'sidekiq',         '>= 6', '< 8'
+  s.add_dependency 'redis',           '>= 5'
   s.add_dependency 'rufus-scheduler', '~> 3.2'
   s.add_dependency 'tilt',            '>= 1.4.0'
   s.add_dependency 'thwait'
@@ -29,12 +29,7 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'simplecov',               '~> 0'
   s.add_development_dependency 'byebug'
 
-  if RUBY_VERSION >= '2.2.2'
-    s.add_development_dependency 'activejob'
-  else
-    s.add_development_dependency 'activejob', '< 5'
-  end
-
+  s.add_development_dependency 'activejob'
   s.add_development_dependency 'coveralls'
   s.add_development_dependency 'rack-test'
   s.add_development_dependency 'sinatra'

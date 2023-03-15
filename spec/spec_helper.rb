@@ -1,20 +1,23 @@
 require 'simplecov'
-require 'coveralls'
 
-SimpleCov.start
-Coveralls.wear!
+SimpleCov.start do
+  add_filter "spec/support/sidekiq.rb"
+  minimum_coverage 97.80
+end
 
 require 'sidekiq'
 require 'sidekiq/testing'
 require 'sidekiq-scheduler'
 require 'json'
 require 'timecop'
+require 'byebug'
 
 # Load all support files
-Dir["#{File.dirname(__FILE__)}/support/**/*.rb"].each { |f| require f }
+Dir["#{File.dirname(__FILE__)}/support/**/*.rb"].sort.each { |f| require f }
+
+$TESTING = true
 
 RSpec.configure do |config|
-
   config.after(:each) do
     Timecop.return
   end
@@ -28,4 +31,6 @@ RSpec.configure do |config|
   end
 
   config.profile_examples = 10
+
+  config.order = :random
 end

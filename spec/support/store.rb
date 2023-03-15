@@ -1,6 +1,5 @@
 module SidekiqScheduler
   module Store
-
     def self.clean
       Sidekiq.redis(&:flushall)
     end
@@ -11,11 +10,11 @@ module SidekiqScheduler
     end
 
     def self.changed_job?(job_id)
-      Sidekiq.redis { |redis| !!redis.zrank("schedules_changed", job_id) }
+      Sidekiq.redis { |redis| !!redis.zrank(SidekiqScheduler::RedisManager.schedules_changed_key, job_id) }
     end
 
     def self.job_from_redis_without_decoding(job_id)
-      Sidekiq.redis { |redis| redis.hget("schedules", job_id) }
+      Sidekiq.redis { |redis| redis.hget(SidekiqScheduler::RedisManager.schedules_key, job_id) }
     end
 
     def self.job_next_execution_time(job_name)
@@ -35,7 +34,7 @@ module SidekiqScheduler
     end
 
     def self.del(key)
-      Sidekiq.redis { |r| r.del(key) }
+      Sidekiq.redis { |r| r.del(key.to_s) }
     end
 
     def self.hdel(hash_key, field_key)
@@ -51,19 +50,20 @@ module SidekiqScheduler
     end
 
     def self.zrangebyscore(zset_key, from, to)
-      Sidekiq.redis { |r| r.zrangebyscore(zset_key.to_s, from, to) }
+      Sidekiq.redis { |r| r.zrangebyscore(zset_key, from, to) }
     end
 
     def self.zrange(zset_key, from, to)
-      Sidekiq.redis { |r| r.zrange(zset_key.to_s, from, to) }
+      Sidekiq.redis { |r| r.zrange(zset_key, from, to) }
     end
 
     def self.exists?(key)
-      Sidekiq.redis { |r| r.exists?(key.to_s) }
+      SidekiqScheduler::SidekiqAdapter.redis_key_exists?(key)
     end
 
     def self.hexists(hash_key, field_key)
-      Sidekiq.redis { |r| r.hexists(hash_key.to_s, field_key.to_s) }
+      result = Sidekiq.redis { |r| r.hexists(hash_key.to_s, field_key.to_s) }
+      SidekiqScheduler::SidekiqAdapter::SIDEKIQ_GTE_7_0_0 ? (result > 0) : result
     end
   end
 end

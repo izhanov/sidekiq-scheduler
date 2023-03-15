@@ -1,19 +1,23 @@
 describe SidekiqScheduler::Manager do
 
   describe '.new' do
-    subject { described_class.new(options) }
+    subject { described_class.new(scheduler_config) }
 
-    let(:options) do
+    let(:scheduler_config) { SidekiqScheduler::Config.new(sidekiq_config: @sconfig.reset!(scheduler_options)) }
+    let(:scheduler_options) do
       {
-        enabled: enabled,
-        dynamic: false,
-        dynamic_every: '5s',
-        scheduler: { listened_queues_only: true },
-        schedule: { 'current' => ScheduleFaker.cron_schedule('queue' => 'default') }
+        scheduler: {
+          enabled: enabled,
+          dynamic: false,
+          dynamic_every: '5s',
+          listened_queues_only: true,
+          schedule: { 'current' => ScheduleFaker.cron_schedule('queue' => 'default') }
+        }
       }
     end
 
     before do
+      @sconfig = SConfigWrapper.new
       SidekiqScheduler::Scheduler.instance = nil
       Sidekiq.instance_variable_set(:@schedule, nil)
     end
@@ -26,29 +30,29 @@ describe SidekiqScheduler::Manager do
       }
 
       it {
-        expect { subject }.to change { Sidekiq.schedule }.to(options[:schedule])
+        expect { subject }.to change { Sidekiq.schedule }.to(scheduler_options[:scheduler][:schedule])
       }
 
       describe 'scheduler attributes' do
         subject do
-          described_class.new(options)
+          described_class.new(scheduler_config)
           SidekiqScheduler::Scheduler.instance
         end
 
         it {
-          expect(subject.enabled).to eql(options[:enabled])
+          expect(subject.enabled).to eql(scheduler_options[:scheduler][:enabled])
         }
 
         it {
-          expect(subject.dynamic).to eql(options[:dynamic])
+          expect(subject.dynamic).to eql(scheduler_options[:scheduler][:dynamic])
         }
 
         it {
-          expect(subject.dynamic_every).to eql(options[:dynamic_every])
+          expect(subject.dynamic_every).to eql(scheduler_options[:scheduler][:dynamic_every])
         }
 
         it {
-          expect(subject.listened_queues_only).to eql(options[:scheduler][:listened_queues_only])
+          expect(subject.listened_queues_only).to eql(scheduler_options[:scheduler][:listened_queues_only])
         }
       end
     end
@@ -66,24 +70,24 @@ describe SidekiqScheduler::Manager do
 
       describe 'scheduler attributes' do
         subject do
-          described_class.new(options)
+          described_class.new(scheduler_config)
           SidekiqScheduler::Scheduler.instance
         end
 
         it {
-          expect(subject.enabled).to eql(options[:enabled])
+          expect(subject.enabled).to eql(scheduler_options[:scheduler][:enabled])
         }
 
         it {
-          expect(subject.dynamic).to eql(options[:dynamic])
+          expect(subject.dynamic).to eql(scheduler_options[:scheduler][:dynamic])
         }
 
         it {
-          expect(subject.listened_queues_only).to eql(options[:scheduler][:listened_queues_only])
+          expect(subject.listened_queues_only).to eql(scheduler_options[:scheduler][:listened_queues_only])
         }
 
         it {
-          expect(subject.listened_queues_only).to eql(options[:scheduler][:listened_queues_only])
+          expect(subject.listened_queues_only).to eql(scheduler_options[:scheduler][:listened_queues_only])
         }
       end
     end
@@ -108,43 +112,55 @@ describe SidekiqScheduler::Manager do
       end
 
       context 'when scheduler options are set' do
-        let(:previous_options) { { enabled: false, dynamic: true, dynamic_every: nil } }
+        let(:previous_options) do
+          {
+            scheduler: {
+              enabled: false,
+              dynamic: true,
+              dynamic_every: nil
+            }
+          }
+        end
 
         before do
-          SidekiqScheduler::Scheduler.instance = SidekiqScheduler::Scheduler.new(previous_options)
+          sidekiq_previous_config = sidekiq_config_for_options(previous_options)
+          previous_config = SidekiqScheduler::Config.new(sidekiq_config: sidekiq_previous_config)
+          SidekiqScheduler::Scheduler.instance = SidekiqScheduler::Scheduler.new(previous_config)
         end
 
         describe 'scheduler attributes' do
           subject do
-            described_class.new(options)
+            described_class.new(scheduler_config)
             SidekiqScheduler::Scheduler.instance
           end
 
           it {
-            expect(subject.enabled).to eql(previous_options[:enabled])
+            expect(subject.enabled).to eql(previous_options[:scheduler][:enabled])
           }
 
           it {
-            expect(subject.dynamic).to eql(previous_options[:dynamic])
+            expect(subject.dynamic).to eql(previous_options[:scheduler][:dynamic])
           }
 
           it {
-            expect(subject.dynamic_every).to eql(options[:dynamic_every])
+            expect(subject.dynamic_every).to eql(scheduler_options[:scheduler][:dynamic_every])
           }
 
           it {
-            expect(subject.listened_queues_only).to eql(options[:scheduler][:listened_queues_only])
+            expect(subject.listened_queues_only).to eql(scheduler_options[:scheduler][:listened_queues_only])
           }
         end
       end
     end
 
     context 'when no options are passed' do
-      let(:options) { {} }
+      let(:scheduler_options) { { scheduler: {} } }
 
-      it {
+      it do
+        subject
+
         expect(SidekiqScheduler::Scheduler.instance).to be_a(SidekiqScheduler::Scheduler)
-      }
+      end
 
       it {
         expect { subject }.to change { Sidekiq.schedule }.to({})
@@ -152,7 +168,8 @@ describe SidekiqScheduler::Manager do
 
       describe 'scheduler attributes' do
         subject do
-          described_class.new(options)
+          sidekiq_config = sidekiq_config_for_options(scheduler_options)
+          described_class.new(SidekiqScheduler::Config.new(sidekiq_config: sidekiq_config))
           SidekiqScheduler::Scheduler.instance
         end
 
@@ -176,11 +193,19 @@ describe SidekiqScheduler::Manager do
 
     let(:manager) do
       described_class.new(
-        enabled: true,
-        dynamic: true,
-        dynamic_every: '5s',
-        scheduler: { listened_queues_only: true },
-        schedule: { 'current' => ScheduleFaker.cron_schedule('queue' => 'default') }
+        SidekiqScheduler::Config.new(
+          sidekiq_config: sidekiq_config_for_options(
+            {
+              scheduler: {
+                listened_queues_only: true,
+                enabled: true,
+                dynamic: true,
+                dynamic_every: '5s',
+                schedule: { 'current' => ScheduleFaker.cron_schedule('queue' => 'default') }
+              },
+            }
+          )
+        )
       )
     end
 
@@ -195,11 +220,19 @@ describe SidekiqScheduler::Manager do
 
     let(:manager) do
       described_class.new(
-        enabled: true,
-        dynamic: true,
-        dynamic_every: '5s',
-        scheduler: { listened_queues_only: true },
-        schedule: { 'current' => ScheduleFaker.cron_schedule('queue' => 'default') }
+        SidekiqScheduler::Config.new(
+          sidekiq_config: sidekiq_config_for_options(
+            {
+              scheduler: {
+                enabled: true,
+                dynamic: true,
+                dynamic_every: '5s',
+                listened_queues_only: true,
+                schedule: { 'current' => ScheduleFaker.cron_schedule('queue' => 'default') }
+              },
+            }
+          )
+        )
       )
     end
 

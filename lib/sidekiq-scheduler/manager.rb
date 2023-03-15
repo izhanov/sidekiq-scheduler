@@ -1,7 +1,5 @@
 require 'redis'
 
-require 'sidekiq/util'
-
 require 'sidekiq-scheduler/schedule'
 require 'sidekiq-scheduler/scheduler'
 
@@ -12,21 +10,12 @@ module SidekiqScheduler
   # from Redis onto the work queues
   #
   class Manager
-    include Sidekiq::Util
+    def initialize(config)
+      set_current_scheduler_options(config)
 
-    DEFAULT_SCHEDULER_OPTIONS = {
-      enabled: true,
-      dynamic: false,
-      dynamic_every: '5s',
-      schedule: {}
-    }
-
-    def initialize(options)
-      scheduler_options = load_scheduler_options(options)
-
-      @scheduler_instance = SidekiqScheduler::Scheduler.new(scheduler_options)
+      @scheduler_instance = SidekiqScheduler::Scheduler.new(config)
       SidekiqScheduler::Scheduler.instance = @scheduler_instance
-      Sidekiq.schedule = scheduler_options[:schedule] if @scheduler_instance.enabled
+      Sidekiq.schedule = config.schedule if @scheduler_instance.enabled
     end
 
     def stop
@@ -43,19 +32,19 @@ module SidekiqScheduler
 
     private
 
-    def load_scheduler_options(options)
-      options[:listened_queues_only] = options.fetch(:scheduler, {})[:listened_queues_only]
-      scheduler_options = DEFAULT_SCHEDULER_OPTIONS.merge(options)
+    def set_current_scheduler_options(config)
+      enabled = SidekiqScheduler::Scheduler.enabled
+      dynamic = SidekiqScheduler::Scheduler.dynamic
+      dynamic_every = SidekiqScheduler::Scheduler.dynamic_every
+      listened_queues_only = SidekiqScheduler::Scheduler.listened_queues_only
 
-      current_options = {
-        enabled: SidekiqScheduler::Scheduler.enabled,
-        dynamic: SidekiqScheduler::Scheduler.dynamic,
-        dynamic_every: SidekiqScheduler::Scheduler.dynamic_every,
-        schedule: Sidekiq.schedule,
-        listened_queues_only: SidekiqScheduler::Scheduler.listened_queues_only
-      }.delete_if { |_, value| value.nil? }
-
-      scheduler_options.merge(current_options)
+      config.enabled = enabled unless enabled.nil?
+      config.dynamic = dynamic unless dynamic.nil?
+      config.dynamic_every = dynamic_every unless dynamic_every.nil?
+      unless Sidekiq.schedule.nil? || (Sidekiq.schedule.respond_to?(:empty?) && Sidekiq.schedule.empty?)
+        config.schedule = Sidekiq.schedule
+      end
+      config.listened_queues_only = listened_queues_only unless listened_queues_only.nil?
     end
   end
 end
